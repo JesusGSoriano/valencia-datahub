@@ -1,0 +1,8 @@
+pandas
+geopandas
+pyogrio
+shapely
+pyproj
+fastparquet
+folium
+openpyxl
