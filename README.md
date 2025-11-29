@@ -150,7 +150,7 @@ Para cada tipo de recurso se generan:
 - **Parquet** (Silver/Gold): Formato columnar, comprimido y optimizado para análisis
 
 ## 👥 Autor
-Jesús García Soriano
+Jesús García Soriano    
 Proyecto desarrollado como análisis de datos abiertos de la ciudad de Valencia.
 
 ## 📄 Licencia
