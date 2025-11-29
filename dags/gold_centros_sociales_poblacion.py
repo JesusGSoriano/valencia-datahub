@@ -16,6 +16,8 @@ def procesar_centros_sociales_distritos():
 
     # Ficheros silver necesarios
     distritos = gpd.read_parquet(os.path.join(SILVER_DIR, "districtes-distritos.parquet"))
+    distritos = distritos.dissolve(by='coddistrit', aggfunc='first').reset_index()
+
     padron = pd.read_parquet(os.path.join(SILVER_DIR, "padron_distritos.parquet"))
     juventud = gpd.read_parquet(os.path.join(SILVER_DIR, "joventut-juventud.parquet"))
     mayores = gpd.read_parquet(os.path.join(SILVER_DIR, "majors-mayores.parquet"))
@@ -76,6 +78,11 @@ def procesar_centros_sociales_distritos():
         .reset_index(name="num_gen")
     )
 
+    print(f"\n=== CENTROS EN DISTRITO 17 ===")
+    print(f"Juventud: {(join_col_juv['coddistrit'] == '17').sum()}")
+    print(f"Mayores: {(join_col_may['coddistrit'] == '17').sum()}")
+    print(f"General: {(join_col_general['coddistrit'] == '17').sum()}")
+
     # Creamos un pivot usando merge para almacenar los datos por distrito
     pivot = (
         juv_por_distrito
@@ -130,6 +137,16 @@ def procesar_centros_sociales_distritos():
         how="left"
     )
 
+    gold["centros_totales"] = gold["num_gen"] + gold["num_may"] + gold["num_juv"]
+
+    gold["Poblacion_2024"] = gold["Poblacion_2024"].fillna(0).astype(int)
+
+    # Creamos una nueva métrica utilizando los datos de los que disponemos
+    gold["centros_por_10k"] = (
+        gold["centros_totales"] / (gold["Poblacion_2024"] / 10000)
+    ).replace([float("inf"), float("nan")], 0)
+
+
     # Guardamos
     out_path = os.path.join(GOLD_DIR, "gold_centros_poblacion_distritos.parquet")
     gold.to_parquet(out_path, compression="snappy")
@@ -143,7 +160,7 @@ def procesar_centros_sociales_distritos():
     folium.Choropleth(
         geo_data=gold.to_json(),
         data=gold,
-        columns=["coddistrit_str", "num_gen", "num_may", "num_juv"],
+        columns=["coddistrit_str", "centros_totales", "centros_por_10k","num_gen", "num_may", "num_juv"],
         key_on="feature.properties.coddistrit_str",
         fill_color="Reds",
         fill_opacity=0.7,
@@ -154,8 +171,8 @@ def procesar_centros_sociales_distritos():
     folium.GeoJson(
         gold,
         tooltip=folium.GeoJsonTooltip(
-            fields=["nombre", "num_gen", "num_may", "num_juv"],
-            aliases=["Distrito:", "Generales:", "Mayores:", "Juventud:"],
+            fields=["nombre", "centros_totales", "centros_por_10k","num_gen", "num_may", "num_juv"],
+            aliases=["Distrito:","Centros total: ", "Centros por 10k hab.:","Generales:", "Mayores:", "Juventud:"],
             localize=True
         )
     ).add_to(m)

@@ -23,6 +23,8 @@ def procesar_hospitales_distritos():
     # 1. Cargar SILVER
     # -----------------------------
     distritos = gpd.read_parquet(os.path.join(SILVER_DIR, "districtes-distritos.parquet"))
+    distritos = distritos.dissolve(by='coddistrit', aggfunc='first').reset_index()
+
     hospitales = gpd.read_parquet(os.path.join(SILVER_DIR, "hospitales.parquet"))
     padron = pd.read_parquet(os.path.join(SILVER_DIR, "padron_distritos.parquet"))
 
@@ -37,6 +39,8 @@ def procesar_hospitales_distritos():
     # 2. Join espacial hospitales → distritos
     # -----------------------------
     join_hosp = gpd.sjoin(hospitales, distritos, how="left", predicate="within", rsuffix="__distrito")
+
+
     
     print(f"\n=== DESPUÉS DEL SPATIAL JOIN ===")
     print(f"Columnas disponibles: {join_hosp.columns.tolist()}")
@@ -57,6 +61,16 @@ def procesar_hospitales_distritos():
     
     print(f"Usando columna código: {cod_col}")
     print(f"Hospitales con distrito asignado: {join_hosp[cod_col].notna().sum()} de {len(join_hosp)}")
+
+    print(f"\n=== HOSPITALES EN POBLATS DEL NORD ===")
+    # Primero encuentra el código de Poblats del Nord
+    poblats_code = distritos[distritos["nombre"].str.contains("POBLATS DEL NORD", case=False, na=False)]["coddistrit"].values
+    print(f"Código de Poblats del Nord: {poblats_code}")
+
+    # Luego filtra hospitales por ese código
+    poblats_hosp = join_hosp[join_hosp[cod_col].isin(poblats_code)]
+    print(f"Hospitales en Poblats del Nord: {len(poblats_hosp)}")
+    print(poblats_hosp[["nombre_left", cod_col]])
 
     # Contar hospitales por código de distrito
     hosp_count = (
@@ -145,12 +159,24 @@ def procesar_hospitales_distritos():
     gold["num_hospitales"] = gold["num_hospitales"].fillna(0).astype(int)
     gold["Poblacion_2024"] = gold["Poblacion_2024"].fillna(0).astype(int)
 
+    gold = gold.dissolve(by='coddistrit', aggfunc='first').reset_index()
+
     print(f"\n=== MERGE HOSPITALES ===")
     print(f"Distritos con hospitales: {gold['num_hospitales'].gt(0).sum()}")
 
     # -----------------------------
     # 8. Métrica GOLD: hospitales por 10.000 habitantes
     # -----------------------------
+
+    # Justo antes de calcular hospitales_por_10k, añade:
+    print("\n=== DEBUG POBLATS DEL NORD ===")
+    poblats = gold[gold["nombre"].str.contains("POBLATS DEL NORD", case=False, na=False)]
+    print(f"Número de filas para Poblats del Nord: {len(poblats)}")
+    print(poblats[["coddistrit", "nombre", "num_hospitales", "Poblacion_2024"]])
+    print(f"\nValores únicos de num_hospitales: {poblats['num_hospitales'].unique()}")
+    print(f"Valores únicos de Poblacion_2024: {poblats['Poblacion_2024'].unique()}")
+
+   # AHORA calcula la métrica
     gold["hospitales_por_10k"] = (
         gold["num_hospitales"] / (gold["Poblacion_2024"] / 10000)
     ).replace([float("inf"), float("nan")], 0)

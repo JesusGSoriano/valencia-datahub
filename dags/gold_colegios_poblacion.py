@@ -19,6 +19,8 @@ def procesar_colegios_distritos():
     # Colegios porque es la variable a analizar.
     # Padron por distritos que almacena el número de habitantes en 2024 por distrito
     distritos = gpd.read_parquet(os.path.join(SILVER_DIR, "districtes-distritos.parquet"))
+    distritos = distritos.dissolve(by='coddistrit', aggfunc='first').reset_index()
+
     colegios = gpd.read_parquet(os.path.join(SILVER_DIR, "centros-educativos-en-valencia.parquet"))
     padron = pd.read_parquet(os.path.join(SILVER_DIR, "padron_distritos.parquet"))
 
@@ -37,8 +39,7 @@ def procesar_colegios_distritos():
         rsuffix="__distrito"
     )
 
-    # Contamos los colegios según su tipo de régimen
-
+    
     # Normalizamos el texto
     join_col["regimen_norm"] = (
         join_col["regimen"]
@@ -47,6 +48,8 @@ def procesar_colegios_distritos():
         .str.replace(r'[^A-Z ]', '', regex=True)
         .str.strip()
     )
+
+    
 
     # Agrupamos
     colegios_por_tipo = (
@@ -84,6 +87,10 @@ def procesar_colegios_distritos():
         if "coddistrit" in c.lower():
             cod_col = c
             break
+
+        # Después del spatial join
+    print(f"\n=== COLEGIOS EN DISTRITO 17 ===")
+    print(f"Total colegios en distrito 17: {(join_col[cod_col] == '17').sum()}")
 
     # Realizamos el conteo de colegios por distrito
     colegios_count = (

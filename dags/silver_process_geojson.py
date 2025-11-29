@@ -11,18 +11,25 @@ SILVER_DIR = "/opt/airflow/data/silver"
 
 def process_geojson():
     files = [f for f in os.listdir(BRONZE_DIR) if f.endswith(".geojson")]
-
     os.makedirs(SILVER_DIR, exist_ok=True)
 
     for file in files:
         path = os.path.join(BRONZE_DIR, file)
         gdf = gpd.read_file(path)
-
-        # Estandarizado de las columnas
+        
+        # AÑADE ESTE DEBUG:
+        print(f"\n=== PROCESANDO {file} ===")
+        print(f"Total registros: {len(gdf)}")
+        
+        # Si tiene columna coddistrit
+        if 'coddistrit' in gdf.columns or 'Coddistrit' in gdf.columns:
+            col = 'coddistrit' if 'coddistrit' in gdf.columns else 'Coddistrit'
+            print(f"Registros con distrito 17: {(gdf[col] == '17').sum()}")
+            print(gdf[gdf[col] == '17'][['nombre', col] if 'nombre' in gdf.columns else [col]])
+        
+        # Resto del código...
         gdf.columns = [c.lower().replace(" ", "_") for c in gdf.columns]
-        # Normalizado de la geografía al estándar
-        gdf = gdf.to_crs(epsg=4326) 
-        # Guardar como parquet por optimización
+        gdf = gdf.to_crs(epsg=4326)
         out_path = os.path.join(SILVER_DIR, file.replace(".geojson", ".parquet"))
         gdf.to_parquet(out_path)
 
